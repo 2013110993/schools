@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 
@@ -10,14 +9,24 @@ import (
 
 //createSchoolHandler for the "POST" /v1/schools  endpoint
 func (app *application) createSchoolHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "Create a new school..")
+	// Our target decode destination
+	var input struct {
+		Name    string `json:"name"`
+		Level   string `json:"level"`
+		Contact string `json:"contact"`
+		Phone   string `json:"phone"`
+		Email   string `json:"email"`
+		Website string `json:"website"`
+		Address string `json:"address"`
+		Mode    string `json:"mode"`
+	}
 }
 
 //showSchoolHandler for the "GET" /v1/schools/:id  endpoint
 func (app *application) showSchoolHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := app.readIDParam(r)
 	if err != nil {
-		http.NotFound(w, r)
+		app.notFoundResponse(w, r)
 		return
 	}
 	//Create a new instance of the School struct containing the ID we extracted
@@ -33,9 +42,8 @@ func (app *application) showSchoolHandler(w http.ResponseWriter, r *http.Request
 		Mode:     []string{"blended", "online"},
 		Version:  1,
 	}
-	err = app.writeJSON(w, http.StatusOK, school, nil)
+	err = app.writeJSON(w, http.StatusOK, envelope{"school": school}, nil)
 	if err != nil {
-		app.logger.Println(err)
-		http.Error(w, "The server encountered a proble and could not process your request", http.StatusInternalServerError)
+		app.serverErrorResponse(w, r, err)
 	}
 }
