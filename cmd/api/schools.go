@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -11,15 +13,23 @@ import (
 func (app *application) createSchoolHandler(w http.ResponseWriter, r *http.Request) {
 	// Our target decode destination
 	var input struct {
-		Name    string `json:"name"`
-		Level   string `json:"level"`
-		Contact string `json:"contact"`
-		Phone   string `json:"phone"`
-		Email   string `json:"email"`
-		Website string `json:"website"`
-		Address string `json:"address"`
-		Mode    string `json:"mode"`
+		Name    string   `json:"name"`
+		Level   string   `json:"level"`
+		Contact string   `json:"contact"`
+		Phone   string   `json:"phone"`
+		Email   string   `json:"email"`
+		Website string   `json:"website"`
+		Address string   `json:"address"`
+		Mode    []string `json:"mode"`
 	}
+	//Initialize a new Json.Decoder instance
+	err := json.NewDecoder(r.Body).Decode(&input)
+	if err != nil {
+		app.errorResponse(w, r, http.StatusBadRequest, err.Error())
+		return
+	}
+	//Display the reques
+	fmt.Fprintf(w, "%+v\n", input)
 }
 
 //showSchoolHandler for the "GET" /v1/schools/:id  endpoint
