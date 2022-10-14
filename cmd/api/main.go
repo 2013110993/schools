@@ -2,36 +2,53 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"time"
+
+	_ "github.com/lib/pq"
 )
 
 //The application version number
 const version = "1.0.0"
+
 //The conifiguration settings
-type config struct{
+type config struct {
 	port int
-	env string //development,   staging, production, etc.
+	env  string //development,   staging, production, etc.
+	db   struct {
+		dsn string
+	}
 }
+
 //Dependency Injection
 type application struct {
-    config config
-    logger *log.Logger
+	config config
+	logger *log.Logger
 }
 
 func main() {
-    // Declare an instance of the config struct.
-    var cfg config
+	// Declare an instance of the config struct.
+	var cfg config
 	//read in the flags tahat are need to populateouuuuur config
-	flag.IntVar(&cfg.port, "port", 3000,  "API server pport")
+	flag.IntVar(&cfg.port, "port", 3000, "API server pport")
 	flag.StringVar(&cfg.env, "env", "development", "Environment (development | staging | production)")
+	flag.StringVar(&cfg.db.dsn, "db-dsn", os.Getenv("SCH_DB_DSN"), "PostgreSQL DSN")
 	flag.Parse()
 	//create a logger
-	logger := log.New(os.Stdout, "", log.Ldate | log.Ltime)
+	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
+	//Create the connection pool
+	db, err := openDB(cfg)
+	if err != nil {
+		logger.Fatal(err)
+	}
+	defer db.Close()
+
 	//create an instance of our application struct
 	app := &application{
 		config: cfg,
@@ -42,15 +59,32 @@ func main() {
 	mux.HandleFunc("/v1/healthcheck", app.healthcheckHandler)
 	//create our HTTP server
 	srv := &http.Server{
-		Addr: 			fmt.Sprintf(":%d", cfg.port),
-		Handler: 		app.routes(),
-		IdleTimeout:	time.Minute,
-		ReadTimeout:	10 * time.Second,
-		WriteTimeout:	30 * time.Second,
+		Addr:         fmt.Sprintf(":%d", cfg.port),
+		Handler:      app.routes(),
+		IdleTimeout:  time.Minute,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 30 * time.Second,
 	}
 	//Start our server
 	logger.Printf("starting %s server on %s", cfg.env, srv.Addr)
-	err := srv.ListenAndServe()
+	err = srv.ListenAndServe()
 	logger.Fatal(err)
 
+}
+
+//openDB() function returns a *sql.DB connection pool
+func openDB(cfg config) (*sql.DB, error) {
+	db, err := sql.Open("postgres", cfg.db.dsn)
+	if err != nil {
+		return nil, err
+	}
+	//Create a context with a 5-second timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err = db.PingContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return db, nil
 }
