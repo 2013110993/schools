@@ -1,9 +1,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
-	"time"
 
 	"schools.federicorosado.net/internal/data"
 	"schools.federicorosado.net/internal/validator"
@@ -73,19 +73,33 @@ func (app *application) showSchoolHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	//Create a new instance of the School struct containing the ID we extracted
-	//from our URL and some sample data
-	school := data.School{
-		ID:        id,
-		CreatedAt: time.Now(),
-		Name:      "Apple Tree",
-		Level:     "High School",
-		Contact:   "Anna Smith",
-		Phone:     "601-4411",
-		Address:   "14 Apple Street",
-		Mode:      []string{"blended", "online"},
-		Version:   1,
+	//Fetch the specifi school
+	school, err := app.models.Schools.Get(id)
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
 	}
+
+	// //Create a STATIC new instance of the School struct containing the ID we extracted
+	// //from our URL and some sample data
+	// school := data.School{
+	// 	ID:        id,
+	// 	CreatedAt: time.Now(),
+	// 	Name:      "Apple Tree",
+	// 	Level:     "High School",
+	// 	Contact:   "Anna Smith",
+	// 	Phone:     "601-4411",
+	// 	Address:   "14 Apple Street",
+	// 	Mode:      []string{"blended", "online"},
+	// 	Version:   1,
+	// }
+
+	//Write the data returned by Get()
 	err = app.writeJSON(w, http.StatusOK, envelope{"school": school}, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
