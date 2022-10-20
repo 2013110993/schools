@@ -3,23 +3,25 @@
 package data
 
 import (
+	"database/sql"
 	"time"
 
+	"github.com/lib/pq"
 	"schools.federicorosado.net/internal/validator"
 )
 
 type School struct {
-	ID       int64     `json:"id"`
-	CreateAt time.Time `json:"-"`
-	Name     string    `json:"name"`
-	Level    string    `json:"level"`
-	Contact  string    `json:"contact"`
-	Phone    string    `json:"phone"`
-	Email    string    `json:"email,omitempty"`
-	Website  string    `json:"website,omitempty"`
-	Address  string    `json:"address"`
-	Mode     []string  `json:"mode"`
-	Version  int32     `json:"version"`
+	ID        int64     `json:"id"`
+	CreatedAt time.Time `json:"-"`
+	Name      string    `json:"name"`
+	Level     string    `json:"level"`
+	Contact   string    `json:"contact"`
+	Phone     string    `json:"phone"`
+	Email     string    `json:"email,omitempty"`
+	Website   string    `json:"website,omitempty"`
+	Address   string    `json:"address"`
+	Mode      []string  `json:"mode"`
+	Version   int32     `json:"version"`
 }
 
 func ValidateSchool(v *validator.Validator, school *School) {
@@ -47,7 +49,46 @@ func ValidateSchool(v *validator.Validator, school *School) {
 
 	v.Check(school.Mode != nil, "mode", "must be provided")
 	v.Check(len(school.Mode) >= 1, "mode", "must contain at least 1 entry")
-	v.Check(len(school.Mode) >= 5, "mode", "must contain at least 5 entry")
+	v.Check(len(school.Mode) <= 5, "mode", "must contain at least 5 entry")
 	v.Check(validator.Unique(school.Mode), "mode", "must not contain duplicate entries")
 
 }
+
+// Define school model which wraps a sql.DB connsctions pool
+type SchoolModel struct {
+	DB *sql.DB
+}
+
+// Insert() allows us to creae a new schools
+func (m SchoolModel) Insert(school *School) error {
+	query := `
+		INSERT INTO schools (name, level, contact, phone, email, website, address, mode)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING id, created_at, version
+	`
+	//Collect the data fields into a slice
+	args := []interface{}{
+		school.Name, school.Level,
+		school.Contact, school.Phone,
+		school.Email, school.Website,
+		school.Address, pq.Array(school.Mode),
+	}
+	return m.DB.QueryRow(query, args...).Scan(&school.ID, &school.CreatedAt, &school.Version)
+}
+
+//Get() alllows us to retrieve a specifi school
+func (m SchoolModel) Get(id int64) (*School, error) {
+	return nil, nil
+}
+
+// Update() allow us to edit/alter a specific school
+func (m SchoolModel) Update(School *School) error {
+	return nil
+}
+
+//Delete() removes a specific school
+func (m SchoolModel) Delete(id int64) error {
+	return nil
+}
+
+//
