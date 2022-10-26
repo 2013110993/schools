@@ -121,6 +121,11 @@ func (m SchoolModel) Get(id int64) (*School, error) {
 }
 
 // Update() allow us to edit/alter a specific school
+//KEY: Go's httserver handles each request in its own goroutine
+//Avoid data races
+// Optimistic locking (version number)
+//A: apples 3 buy 3 so 0 remains
+//Apples 3 buys 2 so 1 remains
 func (m SchoolModel) Update(school *School) error {
 	//Create a query
 	query := `
@@ -144,7 +149,17 @@ func (m SchoolModel) Update(school *School) error {
 		school.ID,
 		school.Version,
 	}
-	return m.DB.QueryRow(query, args...).Scan(&school.Version)
+	//Check for edit conflicts
+	err := m.DB.QueryRow(query, args...).Scan(&school.Version)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return ErrEditConflict
+		default:
+			return err
+		}
+	}
+	return nil
 }
 
 //Delete() removes a specific school
