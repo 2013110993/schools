@@ -275,6 +275,20 @@ func (app *application) listSchoolHandler(w http.ResponseWriter, r *http.Request
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
-	//Results Dump
-	fmt.Fprintf(w, "%+v\n", input)
+	// //Results Dump
+	// fmt.Fprintf(w, "%+v\n", input)
+
+	// Get a listing of all schools
+	schools, err := app.models.Schools.GetAll(input.Name, input.Level, input.Mode, input.Filters)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+	// Send a JSON response conting all response
+	err = app.writeJSON(w, http.StatusOK, envelope{"schools": schools}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
 }
