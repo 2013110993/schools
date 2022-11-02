@@ -13,6 +13,7 @@ import (
 
 	_ "github.com/lib/pq"
 	"schools.federicorosado.net/internal/data"
+	"schools.federicorosado.net/internal/jsonlog"
 )
 
 //The application version number
@@ -33,7 +34,7 @@ type config struct {
 //Dependency Injection
 type application struct {
 	config config
-	logger *log.Logger
+	logger *jsonlog.Logger
 	models data.Models
 }
 
@@ -41,7 +42,7 @@ func main() {
 	// Declare an instance of the config struct.
 	var cfg config
 	//read in the flags tahat are need to populateouuuuur config
-	flag.IntVar(&cfg.port, "port", 3000, "API server pport")
+	flag.IntVar(&cfg.port, "port", 4000, "API server pport")
 	flag.StringVar(&cfg.env, "env", "development", "Environment (development | staging | production)")
 	flag.StringVar(&cfg.db.dsn, "db-dsn", os.Getenv("SCH_DB_DSN"), "PostgreSQL DSN")
 	flag.IntVar(&cfg.db.maxOpenConns, "db-max-open-conss", 25, "PostgreSQL max open connections")
@@ -50,15 +51,15 @@ func main() {
 
 	flag.Parse()
 	//create a logger
-	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
+	logger := jsonlog.New(os.Stdout, jsonlog.LevelInfo)
 	//Create the connection pool
 	db, err := openDB(cfg)
 	if err != nil {
-		logger.Fatal(err)
+		logger.PrintFatal(err, nil)
 	}
 	defer db.Close()
 	//Log the successful connection pool
-	logger.Println("database connection pool established")
+	logger.PrintInfo("database connection pool established", nil)
 	//create an instance of our application struct
 	app := &application{
 		config: cfg,
@@ -72,14 +73,18 @@ func main() {
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.port),
 		Handler:      app.routes(),
+		ErrorLog:     log.New(logger, "", 0),
 		IdleTimeout:  time.Minute,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
 	//Start our server
-	logger.Printf("starting %s server on %s", cfg.env, srv.Addr)
+	logger.PrintInfo("starting server", map[string]string{
+		"addr": srv.Addr,
+		"env":  cfg.env,
+	})
 	err = srv.ListenAndServe()
-	logger.Fatal(err)
+	logger.PrintFatal(err, nil)
 
 }
 
