@@ -5,9 +5,6 @@ import (
 	"context"
 	"database/sql"
 	"flag"
-	"fmt"
-	"log"
-	"net/http"
 	"os"
 	"time"
 
@@ -29,6 +26,11 @@ type config struct {
 		maxIdleConns int
 		maxIdleTime  string
 	}
+	limiter struct {
+		rps     float64 //request/secod
+		burst   int
+		enabled bool
+	}
 }
 
 //Dependency Injection
@@ -42,12 +44,16 @@ func main() {
 	// Declare an instance of the config struct.
 	var cfg config
 	//read in the flags tahat are need to populateouuuuur config
-	flag.IntVar(&cfg.port, "port", 4000, "API server pport")
+	flag.IntVar(&cfg.port, "port", 3000, "API server pport")
 	flag.StringVar(&cfg.env, "env", "development", "Environment (development | staging | production)")
 	flag.StringVar(&cfg.db.dsn, "db-dsn", os.Getenv("SCH_DB_DSN"), "PostgreSQL DSN")
-	flag.IntVar(&cfg.db.maxOpenConns, "db-max-open-conss", 25, "PostgreSQL max open connections")
-	flag.IntVar(&cfg.db.maxIdleConns, "db-max-idle-conss", 25, "PostgreSQL max idle connections")
+	flag.IntVar(&cfg.db.maxOpenConns, "db-max-open-conss", 20, "PostgreSQL max open connections")
+	flag.IntVar(&cfg.db.maxIdleConns, "db-max-idle-conss", 20, "PostgreSQL max idle connections")
 	flag.StringVar(&cfg.db.maxIdleTime, "db-max-idle-time", "15m", "PostgreSQL max connection idle time")
+	// These are flags for the rate limiter
+	flag.Float64Var(&cfg.limiter.rps, "limiter-rps", 2, "Rate limiter maximu requests per second")
+	flag.IntVar(&cfg.limiter.burst, "limiter-burst", 2, "Rate limiter maximu burst")
+	flag.BoolVar(&cfg.limiter.enabled, "limiter-enabled", true, "Enabled rate limiter")
 
 	flag.Parse()
 	//create a logger
@@ -66,26 +72,12 @@ func main() {
 		logger: logger,
 		models: data.NewModels(db),
 	}
-	//Create our new servemux
-	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/healthcheck", app.healthcheckHandler)
-	//create our HTTP server
-	srv := &http.Server{
-		Addr:         fmt.Sprintf(":%d", cfg.port),
-		Handler:      app.routes(),
-		ErrorLog:     log.New(logger, "", 0),
-		IdleTimeout:  time.Minute,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 30 * time.Second,
-	}
-	//Start our server
-	logger.PrintInfo("starting server", map[string]string{
-		"addr": srv.Addr,
-		"env":  cfg.env,
-	})
-	err = srv.ListenAndServe()
-	logger.PrintFatal(err, nil)
 
+	//Call app.serve() to start server
+	err = app.serve()
+	if err != nil {
+		logger.PrintFatal(err, nil)
+	}
 }
 
 //openDB() function returns a *sql.DB connection pool

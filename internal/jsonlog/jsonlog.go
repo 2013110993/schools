@@ -95,7 +95,7 @@ func (l *Logger) print(level Level, message string, properties map[string]string
 	}
 	// prepare to write the log entry
 	l.mu.Lock()
-	defer l.mu.Lock()
+	defer l.mu.Unlock()
 	return l.out.Write(append(entry, '\n'))
 }
 

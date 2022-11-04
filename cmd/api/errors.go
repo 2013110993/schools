@@ -1,5 +1,3 @@
-// Filename : cmd/api/errors.go
-
 package main
 
 import (
@@ -14,9 +12,9 @@ func (app *application) logError(r *http.Request, err error) {
 	})
 }
 
-//We wan to send JSON-formatted error message
+// We want to send JSON-formatted error message
 func (app *application) errorResponse(w http.ResponseWriter, r *http.Request, status int, message interface{}) {
-	//Create the JSON response
+	// Create the JSON response
 	env := envelope{"error": message}
 	err := app.writeJSON(w, status, env, nil)
 	if err != nil {
@@ -25,36 +23,35 @@ func (app *application) errorResponse(w http.ResponseWriter, r *http.Request, st
 	}
 }
 
-//Server erro response
+// Server error response
 func (app *application) serverErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
-	//we log the error
+	// We log the error
 	app.logError(r, err)
-	//prepare a message with the error
-	message := "the server encountered a problem and could not process the request"
+	// Prepare a message with the error
+	message := "the server encounted a problem and could not process the request"
 	app.errorResponse(w, r, http.StatusInternalServerError, message)
 }
 
-//the not found response
+// The not found response
 func (app *application) notFoundResponse(w http.ResponseWriter, r *http.Request) {
-	//Create our message
+	// Creat our message
 	message := "the requested resource could not be found"
 	app.errorResponse(w, r, http.StatusNotFound, message)
 }
 
 // A method not allowed response
 func (app *application) methodNotAllowedResponse(w http.ResponseWriter, r *http.Request) {
-	//Create our message
+	// Creat our message
 	message := fmt.Sprintf("the %s method is not supported for this resource", r.Method)
 	app.errorResponse(w, r, http.StatusMethodNotAllowed, message)
 }
 
-//User provide a bad request
+// User provided a bad request
 func (app *application) badRequestResponse(w http.ResponseWriter, r *http.Request, err error) {
-
 	app.errorResponse(w, r, http.StatusBadRequest, err.Error())
 }
 
-// validation error
+// Validation error
 func (app *application) failedValidationResponse(w http.ResponseWriter, r *http.Request, errors map[string]string) {
 	app.errorResponse(w, r, http.StatusUnprocessableEntity, errors)
 }
@@ -63,4 +60,10 @@ func (app *application) failedValidationResponse(w http.ResponseWriter, r *http.
 func (app *application) editConflictResponse(w http.ResponseWriter, r *http.Request) {
 	message := "unable to update the record due to an edit conflict, please try again"
 	app.errorResponse(w, r, http.StatusConflict, message)
+}
+
+// Rate limit error
+func (app *application) rateLimitExceededResponse(w http.ResponseWriter, r *http.Request) {
+	message := "rate limit exceeded"
+	app.errorResponse(w, r, http.StatusTooManyRequests, message)
 }
